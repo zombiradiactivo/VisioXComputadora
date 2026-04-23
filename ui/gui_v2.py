@@ -3,9 +3,11 @@ import json
 import os
 from tkinter import filedialog, ttk
 from PIL import Image
+from datetime import datetime
 
 from core.ollama import clasificar_imagenes
 from core.status import verificar_ollama
+from config.config import CARPETA_RESULTADOS
 app = None
 
 # --- Configuraciones Globales de Estilo Cyberpunk ---
@@ -185,8 +187,12 @@ class VisionXCyberpunk(ctk.CTk):
         self.btn_json.pack(side="left", padx=2)
         
         self.btn_txt = ctk.CTkButton(tab_frame, text="LOG.TXT", fg_color="transparent", border_color=PALETA["gris_medio"], text_color=PALETA["texto"],
-                                   hover_color=PALETA["gris_medio"], **btn_tab_style, command=lambda: self.cambiar_tabla("txt"))
+                                    hover_color=PALETA["gris_medio"], **btn_tab_style, command=lambda: self.cambiar_tabla("txt"))
         self.btn_txt.pack(side="left", padx=2)
+
+        self.btn_guardar = ctk.CTkButton(tab_frame, text="SAVE", fg_color=PALETA["verde_neon"], text_color="#000000",
+                                    hover_color="#32cd32", **btn_tab_style, command=self.guardar_resultados)
+        self.btn_guardar.pack(side="left", padx=2)
 
         # Contenedor de texto
         self.results_view = ctk.CTkFrame(self.right_column, fg_color=PALETA["fondo"], corner_radius=0, border_width=1, border_color=PALETA["gris_medio"])
@@ -407,6 +413,28 @@ class VisionXCyberpunk(ctk.CTk):
                 self.result_text.insert("end", f"{nombre} | TAG:{cat} | CONF:{conf:.4f}\n")
 
         self.result_text.see("0.0") # Volver arriba
+
+
+    def guardar_resultados(self):
+        if not self.resultados:
+            self._log_sistema("ERROR: Buffer de resultados vacío.", PALETA["magenta"])
+            return
+        base = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", CARPETA_RESULTADOS)
+        json_dir = os.path.join(base, "json")
+        txt_dir = os.path.join(base, "txt")
+        os.makedirs(json_dir, exist_ok=True)
+        os.makedirs(txt_dir, exist_ok=True)
+        ts = datetime.now().strftime("%Y%m%d_%H%M%S")
+        with open(os.path.join(json_dir, f"resultados_{ts}.json"), "w", encoding="utf-8") as f:
+            json.dump(self.resultados, f, indent=2, ensure_ascii=False)
+        with open(os.path.join(txt_dir, f"resultados_{ts}.txt"), "w", encoding="utf-8") as f:
+            for r in self.resultados:
+                nombre = os.path.basename(r["imagen"])
+                cat = r["resultado"].get("categoria", "desconocido")
+                conf = r["resultado"].get("confianza", 0)
+                razones = r["resultado"].get("razones", "")
+                f.write(f"{nombre} | {cat} | {conf:.1%}\n   {razones}\n\n")
+        self._log_sistema(f"RESULTADOS GUARDADOS: {ts}", PALETA["verde_neon"])
 
 
 if __name__ == "__main__":

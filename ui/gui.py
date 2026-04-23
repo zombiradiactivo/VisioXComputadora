@@ -6,10 +6,12 @@ from tkinter import filedialog
 from tkinter import ttk
 from PIL import Image
 from customtkinter import CTkImage
+from datetime import datetime
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from core.ollama import clasificar_imagenes
 from core.status import verificar_ollama
+from config.config import CARPETA_RESULTADOS
 app = None
 
 
@@ -232,8 +234,11 @@ class VisionXApp(ctk.CTk):
                                    command=lambda: self.cambiar_tabla("json"))
         self.btn_json.pack(side="left", padx=2)
         self.btn_txt = ctk.CTkButton(tab_frame, text="TXT", width=60, height=25, fg_color="#444444",
-                                   command=lambda: self.cambiar_tabla("txt"))
+                                    command=lambda: self.cambiar_tabla("txt"))
         self.btn_txt.pack(side="left", padx=2)
+        self.btn_guardar = ctk.CTkButton(tab_frame, text="Guardar", width=70, height=25, fg_color="#4caf50",
+                                    command=self.guardar_resultados)
+        self.btn_guardar.pack(side="left", padx=2)
 
         self.results_view = ctk.CTkFrame(self.right_column, fg_color="#1a1a1a")
         self.results_view.pack(fill="both", expand=True, padx=20, pady=(0, 20))
@@ -250,6 +255,25 @@ class VisionXApp(ctk.CTk):
         self.btn_json.configure(fg_color="#2196f3" if tipo == "json" else "#444444")
         self.btn_txt.configure(fg_color="#2196f3" if tipo == "txt" else "#444444")
         self.mostrar_resultados()
+
+    def guardar_resultados(self):
+        if not self.resultados:
+            return
+        base = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", CARPETA_RESULTADOS)
+        json_dir = os.path.join(base, "json")
+        txt_dir = os.path.join(base, "txt")
+        os.makedirs(json_dir, exist_ok=True)
+        os.makedirs(txt_dir, exist_ok=True)
+        ts = datetime.now().strftime("%Y%m%d_%H%M%S")
+        with open(os.path.join(json_dir, f"resultados_{ts}.json"), "w", encoding="utf-8") as f:
+            json.dump(self.resultados, f, indent=2, ensure_ascii=False)
+        with open(os.path.join(txt_dir, f"resultados_{ts}.txt"), "w", encoding="utf-8") as f:
+            for r in self.resultados:
+                nombre = os.path.basename(r["imagen"])
+                cat = r["resultado"].get("categoria", "desconocido")
+                conf = r["resultado"].get("confianza", 0)
+                razones = r["resultado"].get("razones", "")
+                f.write(f"{nombre} | {cat} | {conf:.1%}\n   {razones}\n\n")
 
     def mostrar_resultados(self):
         self.result_text.delete("0.0", "end")
